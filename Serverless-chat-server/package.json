@@ -1,0 +1,32 @@
+{
+  "name": "hello_world",
+  "version": "1.0.0",
+  "description": "hello world sample for NodeJS",
+  "main": "app.js",
+  "repository": "https://github.com/awslabs/aws-sam-cli/tree/develop/samcli/local/init/templates/cookiecutter-aws-sam-hello-nodejs",
+  "author": "SAM CLI",
+  "license": "MIT",
+  "dependencies": {
+    "aws-sdk": "^2.578.0",
+    "node-fetch": "^2.6.0"
+  },
+  "scripts": {
+    "test": "jest src",
+    "test:watch": "npm t -- --watch --coverage",
+    "build": "babel ./src --out-dir build --extensions \".ts,.tsx\"",
+    "prettier:write": "prettier --write \"{src,__{tests,mocks}__}/**/*.ts\""
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.7.4",
+    "@babel/core": "^7.7.4",
+    "@babel/plugin-proposal-class-properties": "^7.7.4",
+    "@babel/plugin-proposal-object-rest-spread": "^7.7.4",
+    "@babel/preset-env": "^7.7.4",
+    "@babel/preset-typescript": "^7.7.4",
+    "@types/aws-lambda": "^8.10.36",
+    "@types/jest": "^24.0.23",
+    "@types/node-fetch": "^2.5.4",
+    "jest": "^24.9.0",
+    "prettier": "1.19.1"
+  }
+}

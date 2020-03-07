@@ -1,0 +1,222 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'sam-app
+
+  Sample SAM Template for sam-app
+
+  '
+Globals:
+  Function:
+    Timeout: 900
+Resources:
+  ConnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://kleeut-lambda/136c3e7dec9b16ada0da44a1d6d4981c
+      Handler: connectLambda.handler
+      Runtime: nodejs10.x
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ChatTable
+      - AWSLambdaFullAccess
+      - CloudWatchLogsFullAccess
+      - AmazonAPIGatewayInvokeFullAccess
+      - AmazonAPIGatewayAdministrator
+      Environment:
+        Variables:
+          DYNAMO_TABLE:
+            Ref: ChatTable
+  ConnectPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+    - ChatWebSocketApi
+    - ConnectFunction
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Ref: ConnectFunction
+      Principal: apigateway.amazonaws.com
+  ConnectLambdaIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId:
+        Ref: ChatWebSocketApi
+      Description: On Connect Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ConnectFunction.Arn}/invocations
+  DisconnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://kleeut-lambda/e15af67bef9bcc26c56686dcb607285e
+      Handler: disconnectLambda.handler
+      Runtime: nodejs10.x
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ChatTable
+      - AWSLambdaFullAccess
+      - CloudWatchLogsFullAccess
+      - AmazonAPIGatewayInvokeFullAccess
+      - AmazonAPIGatewayAdministrator
+      Environment:
+        Variables:
+          DYNAMO_TABLE:
+            Ref: ChatTable
+  DisconnectPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+    - ChatWebSocketApi
+    - DisconnectFunction
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Ref: DisconnectFunction
+      Principal: apigateway.amazonaws.com
+  DisconnectLambdaIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId:
+        Ref: ChatWebSocketApi
+      Description: On Disconnect Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DisconnectFunction.Arn}/invocations
+  DefaultFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://kleeut-lambda/a0199f9ed052126a147af8903afd5a0c
+      Handler: defaultLambda.handler
+      Runtime: nodejs10.x
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ChatTable
+      - AWSLambdaFullAccess
+      - CloudWatchLogsFullAccess
+      - AmazonAPIGatewayInvokeFullAccess
+      - AmazonAPIGatewayAdministrator
+      Environment:
+        Variables:
+          DYNAMO_TABLE:
+            Ref: ChatTable
+          WEBSOCKET_API_ID:
+            Ref: ChatWebSocketApi
+  DefaultPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+    - ChatWebSocketApi
+    - DefaultFunction
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Ref: DefaultFunction
+      Principal: apigateway.amazonaws.com
+  DefaultIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId:
+        Ref: ChatWebSocketApi
+      Description: Test Integration
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DefaultFunction.Arn}/invocations
+  ChatTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: kid
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+      - AttributeName: kid
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
+      Tags:
+      - Key: useage
+        Value: trivia
+  ChatWebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: ChatWebSocketApi
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: $request.body.action
+  ConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId:
+        Ref: ChatWebSocketApi
+      RouteKey: $connect
+      AuthorizationType: NONE
+      OperationName: ConnectRoute
+      Target:
+        Fn::Join:
+        - /
+        - - integrations
+          - Ref: ConnectLambdaIntegration
+  DisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId:
+        Ref: ChatWebSocketApi
+      RouteKey: $disconnect
+      OperationName: DisconnectRoute
+      Target:
+        Fn::Join:
+        - /
+        - - integrations
+          - Ref: DisconnectLambdaIntegration
+  DefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId:
+        Ref: ChatWebSocketApi
+      RouteKey: $default
+      AuthorizationType: NONE
+      OperationName: DefaultRoute
+      Target:
+        Fn::Join:
+        - /
+        - - integrations
+          - Ref: DefaultIntegration
+  Deployment:
+    Type: AWS::ApiGatewayV2::Deployment
+    DependsOn:
+    - DefaultRoute
+    - ConnectRoute
+    - DisconnectRoute
+    Properties:
+      ApiId:
+        Ref: ChatWebSocketApi
+  Stage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      StageName: v1
+      Description: Version 1 'stage'
+      DeploymentId:
+        Ref: Deployment
+      ApiId:
+        Ref: ChatWebSocketApi
+Outputs:
+  ConnectFunction:
+    Description: Hello World Lambda Function ARN
+    Value:
+      Fn::GetAtt:
+      - ConnectFunction
+      - Arn
+  ConnectFunctionIamRole:
+    Description: Implicit IAM Role created for Hello World function
+    Value:
+      Fn::GetAtt:
+      - ConnectFunctionRole
+      - Arn
+  RefChatWebSocketApi:
+    Description: ref ChatWebSocketApi
+    Value:
+      Ref: ChatWebSocketApi
